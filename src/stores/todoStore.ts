@@ -42,7 +42,7 @@ export const useTodoStore = defineStore('todos', () => {
   async function cleanupOldTodos() {
     const cutoff = dayjs().subtract(365, 'day').toISOString()
     const old = await db.todos
-      .where('done').equals(true)
+      .where('done').equals(true as any)
       .and(t => t.doneAt !== undefined && t.doneAt < cutoff)
       .toArray()
     if (old.length) {
