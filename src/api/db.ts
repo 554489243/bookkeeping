@@ -34,11 +34,23 @@ export interface Book {
   createdAt: number
 }
 
+export interface Todo {
+  id?: number
+  content: string
+  type: 'money' | 'life' | 'work' | 'note'
+  priority: 0 | 1 | 2
+  dueDate: string
+  done: boolean
+  doneAt?: string
+  createdAt: string
+}
+
 class BookkeepingDB extends Dexie {
   records!: Table<RecordItem>
   records_history!: Table<RecordItem>
   categories!: Table<Category>
   books!: Table<Book>
+  todos!: Table<Todo>
 
   constructor() {
     super('BookkeepingDB')
@@ -188,6 +200,13 @@ class BookkeepingDB extends Dexie {
       records_history: '++id, type, categoryId, bookId, date, createdAt',
       categories: '++id, type, sort, parentId',
       books: '++id, name, sort, isDefault'
+    })
+    this.version(8).stores({
+      records: '++id, type, categoryId, bookId, date, createdAt',
+      records_history: '++id, type, categoryId, bookId, date, createdAt',
+      categories: '++id, type, sort, parentId',
+      books: '++id, name, sort, isDefault',
+      todos: '++id, type, priority, dueDate, done, doneAt, createdAt'
     })
   }
 
