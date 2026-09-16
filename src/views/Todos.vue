@@ -22,12 +22,12 @@
       </div>
 
       <!-- 日历 -->
-      <div class="calendar-card">
-      <div class="calendar-nav">
-        <div class="nav-btn" @click="prevMonth">‹</div>
-        <div class="month">{{ calendarTitle }}</div>
-        <div class="nav-btn" @click="nextMonth">›</div>
-      </div>
+      <div class="calendar-card" v-show="!calendarCollapsed">
+        <div class="calendar-nav">
+          <div class="nav-btn" @click="prevMonth">‹</div>
+          <div class="month">{{ calendarTitle }}</div>
+          <div class="nav-btn" @click="nextMonth">›</div>
+        </div>
       <div class="weekdays">
         <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
       </div>
@@ -55,6 +55,10 @@
           </div>
         </div>
       </div>
+      </div>
+      <!-- 日历折叠按钮 -->
+      <div class="calendar-toggle" @click="calendarCollapsed = !calendarCollapsed">
+        {{ calendarCollapsed ? '展开日历 ▾' : '收起日历 ▴' }}
       </div>
     </div>
 
@@ -163,7 +167,7 @@
         <div class="modal-actions">
           <button class="btn-cancel" @click="showAdd = false">取消</button>
           <button class="btn-confirm" @click="onSubmit">确定</button>
-        </div      >
+        </div>
       </div>
     </van-popup>
 
@@ -178,6 +182,12 @@
         @cancel="showDatePicker = false"
       />
     </van-popup>
+
+    <!-- 底部 Tab -->
+    <TabBar />
+
+    <!-- 浮动添加按钮 -->
+    <div class="fab-add" @click="showAdd = true">+</div>
   </div>
 </template>
 
@@ -187,6 +197,7 @@ import { useTodoStore } from '@/stores/todoStore'
 import { Todo } from '@/api/db'
 import dayjs from 'dayjs'
 import { showToast } from 'vant'
+import TabBar from '@/components/TabBar.vue'
 
 const todoStore = useTodoStore()
 
@@ -195,6 +206,7 @@ const calendarMonth = ref(dayjs())
 const selectedDate = ref(dayjs().format('YYYY-MM-DD'))
 const showAdd = ref(false)
 const showDatePicker = ref(false)
+const calendarCollapsed = ref(false)
 const datePickerValue = ref(['2026', '09', '17'])
 
 const minDate = new Date(2025, 0, 1)
@@ -468,6 +480,36 @@ onMounted(async () => {
 .day-cell.selected { background: var(--primary); }
 .day-cell.selected .day-num { color: #fff; }
 .day-cell.other-month { opacity: 0.3; }
+
+/* 日历折叠按钮 */
+.calendar-toggle {
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+/* 浮动添加按钮 */
+.fab-add {
+  position: fixed;
+  bottom: 75px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), #6C9BFF);
+  box-shadow: 0 4px 16px rgba(79, 140, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 101;
+}
+.fab-add:active { transform: scale(0.92); }
 
 /* 过期提示 */
 .overdue-banner {
