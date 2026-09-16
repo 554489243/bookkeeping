@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { db, Todo } from '@/api/db'
 import dayjs from 'dayjs'
 
+type TodoType = 'money' | 'life' | 'work' | 'note' | 'health' | 'study'
+
 export const useTodoStore = defineStore('todos', () => {
   const todos = ref<Todo[]>([])
   const loaded = ref(false)
@@ -13,7 +15,7 @@ export const useTodoStore = defineStore('todos', () => {
     loaded.value = true
   }
 
-  async function addTodo(content: string, type: Todo['type'], priority: Todo['priority'], dueDate: string) {
+  async function addTodo(content: string, type: TodoType, priority: Todo['priority'], dueDate: string) {
     const todo: Todo = {
       content,
       type,

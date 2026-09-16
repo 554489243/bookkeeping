@@ -84,27 +84,34 @@
         <div class="empty-text">暂无待办</div>
       </div>
 
-      <div
+      <van-swipe-cell
         v-for="t in selectedTodos"
         :key="t.id"
-        class="todo-item"
-        :class="[
-          'priority-' + priorityClass(t.priority),
-          t.done ? 'done' : ''
-        ]"
+        class="todo-swipe"
       >
-        <div class="todo-check" :class="{ checked: t.done }" @click="onToggle(t.id!)">
-          <span v-if="t.done">✓</span>
-        </div>
-        <div class="todo-content">
-          <div class="todo-text">{{ t.content }}</div>
-          <div class="todo-meta">
-            <span class="todo-tag" :class="'tag-' + t.type">{{ typeLabel(t.type) }}</span>
-            <span class="todo-time">{{ formatDueDate(t.dueDate) }}</span>
+        <div
+          class="todo-item"
+          :class="[
+            'priority-' + priorityClass(t.priority),
+            t.done ? 'done' : ''
+          ]"
+        >
+          <div class="todo-check" :class="{ checked: t.done }" @click="onToggle(t.id!)">
+            <span v-if="t.done">✓</span>
+          </div>
+          <div class="todo-content">
+            <div class="todo-text">{{ t.content }}</div>
+            <div class="todo-meta">
+              <span class="todo-tag" :class="'tag-' + t.type">{{ typeLabel(t.type) }}</span>
+              <span class="todo-status" :style="{ color: getStatus(t).color }">{{ getStatus(t).text }}</span>
+              <span class="todo-time">{{ formatDueDate(t.dueDate) }}</span>
+            </div>
           </div>
         </div>
-        <span class="todo-del" @click="onDelete(t.id!)">×</span>
-      </div>
+        <template #right>
+          <div class="swipe-delete" @click="onDelete(t.id!)">删除</div>
+        </template>
+      </van-swipe-cell>
     </div>
 
     <!-- 即将到来的待办 -->
@@ -113,18 +120,26 @@
       <div
         v-for="t in upcomingTodos.slice(0, 5)"
         :key="t.id"
-        class="todo-item"
-        :class="'priority-' + priorityClass(t.priority)"
       >
-        <div class="todo-check" @click="onToggle(t.id!)"></div>
-        <div class="todo-content">
-          <div class="todo-text">{{ t.content }}</div>
-          <div class="todo-meta">
-            <span class="todo-tag" :class="'tag-' + t.type">{{ typeLabel(t.type) }}</span>
-            <span class="todo-time">{{ formatDueDate(t.dueDate) }}</span>
+        <van-swipe-cell class="todo-swipe">
+          <div
+            class="todo-item"
+            :class="'priority-' + priorityClass(t.priority)"
+          >
+            <div class="todo-check" @click="onToggle(t.id!)"></div>
+            <div class="todo-content">
+              <div class="todo-text">{{ t.content }}</div>
+              <div class="todo-meta">
+                <span class="todo-tag" :class="'tag-' + t.type">{{ typeLabel(t.type) }}</span>
+                <span class="todo-status" :style="{ color: getStatus(t).color }">{{ getStatus(t).text }}</span>
+                <span class="todo-time">{{ formatDueDate(t.dueDate) }}</span>
+              </div>
+            </div>
           </div>
-        </div>
-        <span class="todo-del" @click="onDelete(t.id!)">×</span>
+          <template #right>
+            <div class="swipe-delete" @click="onDelete(t.id!)">删除</div>
+          </template>
+        </van-swipe-cell>
       </div>
     </div>
 
@@ -222,10 +237,12 @@ const form = ref({
 })
 
 const typeOptions = [
-  { value: 'money' as const, icon: '💰', label: '钱' },
-  { value: 'life' as const, icon: '🏠', label: '生活' },
-  { value: 'work' as const, icon: '💼', label: '工作' },
-  { value: 'note' as const, icon: '📝', label: '备忘' },
+  { value: 'money' as const, icon: '💰', label: '钱', color: '#F57C00' },
+  { value: 'life' as const, icon: '🏠', label: '生活', color: '#43A047' },
+  { value: 'work' as const, icon: '💼', label: '工作', color: '#1976D2' },
+  { value: 'note' as const, icon: '📝', label: '备忘', color: '#7B1FA2' },
+  { value: 'health' as const, icon: '🏃', label: '健康', color: '#E91E63' },
+  { value: 'study' as const, icon: '📚', label: '学习', color: '#00897B' },
 ]
 
 const priorityOptions = [
@@ -239,6 +256,14 @@ const typeColors: Record<string, string> = {
   life: '#43A047',
   work: '#1976D2',
   note: '#7B1FA2',
+  health: '#E91E63',
+  study: '#00897B',
+}
+
+function getStatus(t: Todo): { text: string; color: string } {
+  if (t.done) return { text: '✓ 已完成', color: '#34D399' }
+  if (dayjs(t.dueDate).isBefore(dayjs(), 'day')) return { text: '⚠ 已过期', color: '#FB7185' }
+  return { text: '待完成', color: '#94A3B8' }
 }
 
 function typeLabel(type: string) {
@@ -623,13 +648,25 @@ onMounted(async () => {
 .tag-life { background: #E8F5E9; color: #43A047; }
 .tag-work { background: #E3F2FD; color: #1976D2; }
 .tag-note { background: #F3E5F5; color: #7B1FA2; }
-.todo-time { font-size: 11px; color: var(--text-secondary); }
-.todo-del {
-  color: var(--text-secondary);
-  font-size: 18px;
-  padding: 0 4px;
+.tag-health { background: #FCE4EC; color: #E91E63; }
+.tag-study { background: #E0F2F1; color: #00897B; }
+.todo-status { font-size: 11px; font-weight: 600; }
+
+/* 右滑删除 */
+.todo-swipe { margin-bottom: 8px; }
+.swipe-delete {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
 }
+.todo-time { font-size: 11px; color: var(--text-secondary); }
+
 
 /* 弹窗 */
 .modal {

@@ -37,7 +37,7 @@ export interface Book {
 export interface Todo {
   id?: number
   content: string
-  type: 'money' | 'life' | 'work' | 'note'
+  type: 'money' | 'life' | 'work' | 'note' | 'health' | 'study'
   priority: 0 | 1 | 2
   dueDate: string
   done: boolean
