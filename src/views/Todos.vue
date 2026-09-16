@@ -1,27 +1,28 @@
 <template>
   <div class="todo-page">
-    <!-- 顶部 -->
-    <div class="header">
-      <h1>📋 待办 & 备忘</h1>
-      <div class="date">{{ dateStr }}</div>
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-num">{{ undoneCount }}</div>
-          <div class="stat-label">待办</div>
-        </div>
-        <div class="stat">
-          <div class="stat-num">{{ doneCount }}</div>
-          <div class="stat-label">已完成</div>
-        </div>
-        <div class="stat">
-          <div class="stat-num">{{ overdueCount }}</div>
-          <div class="stat-label">已过期</div>
+    <!-- 顶部 + 日历 (Sticky) -->
+    <div class="sticky-area">
+      <div class="header">
+        <h1>📋 待办 & 备忘</h1>
+        <div class="date">{{ dateStr }}</div>
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-num">{{ undoneCount }}</div>
+            <div class="stat-label">待办</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">{{ doneCount }}</div>
+            <div class="stat-label">已完成</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">{{ overdueCount }}</div>
+            <div class="stat-label">已过期</div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- 日历 -->
-    <div class="calendar-card">
+      <!-- 日历 -->
+      <div class="calendar-card">
       <div class="calendar-nav">
         <div class="nav-btn" @click="prevMonth">‹</div>
         <div class="month">{{ calendarTitle }}</div>
@@ -53,6 +54,7 @@
             />
           </div>
         </div>
+      </div>
       </div>
     </div>
 
@@ -363,14 +365,23 @@ onMounted(async () => {
 <style scoped>
 .todo-page {
   padding-bottom: 80px;
+  padding-top: 0;
+}
+
+/* Sticky 日历区域 */
+.sticky-area {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(135deg, #4F8CFF 0%, #6C9BFF 100%);
+  padding-bottom: 12px;
 }
 
 /* 顶部 */
 .header {
-  background: linear-gradient(135deg, #4F8CFF 0%, #6C9BFF 100%);
   color: #fff;
-  padding: 20px 20px 24px;
-  border-radius: 0 0 24px 24px;
+  padding: 20px 20px 16px;
+  border-radius: 0;
 }
 .header h1 { font-size: 22px; font-weight: 700; }
 .header .date { font-size: 13px; opacity: 0.85; margin-top: 4px; }

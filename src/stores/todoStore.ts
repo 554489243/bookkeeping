@@ -41,10 +41,8 @@ export const useTodoStore = defineStore('todos', () => {
 
   async function cleanupOldTodos() {
     const cutoff = dayjs().subtract(365, 'day').toISOString()
-    const old = await db.todos
-      .where('done').equals(true as any)
-      .and(t => t.doneAt !== undefined && t.doneAt < cutoff)
-      .toArray()
+    const all = await db.todos.toArray()
+    const old = all.filter(t => t.done && t.doneAt && t.doneAt < cutoff)
     if (old.length) {
       await db.todos.bulkDelete(old.map(t => t.id!))
       todos.value = todos.value.filter(t => !old.some(o => o.id === t.id))
