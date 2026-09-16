@@ -2,6 +2,11 @@
   <div class="todo-page">
     <!-- 顶部 + 日历 (Sticky) -->
     <div class="sticky-area">
+      <!-- 右上角添加按钮 -->
+      <div class="btn-add-todo" @click="showAdd = true">
+        <span class="add-icon">+</span>
+        <span class="add-text">记一条</span>
+      </div>
       <div class="header">
         <h1>📋 待办 & 备忘</h1>
         <div class="date">{{ dateStr }}</div>
@@ -185,9 +190,6 @@
 
     <!-- 底部 Tab -->
     <TabBar />
-
-    <!-- 浮动添加按钮 -->
-    <div class="fab-add" @click="showAdd = true">+</div>
   </div>
 </template>
 
@@ -206,7 +208,7 @@ const calendarMonth = ref(dayjs())
 const selectedDate = ref(dayjs().format('YYYY-MM-DD'))
 const showAdd = ref(false)
 const showDatePicker = ref(false)
-const calendarCollapsed = ref(false)
+const calendarCollapsed = ref(true)
 const datePickerValue = ref(['2026', '09', '17'])
 
 const minDate = new Date(2025, 0, 1)
@@ -491,25 +493,34 @@ onMounted(async () => {
   margin-top: 4px;
 }
 
-/* 浮动添加按钮 */
-.fab-add {
-  position: fixed;
-  bottom: 75px;
+/* 添加按钮 */
+.btn-add-todo {
+  position: absolute;
+  top: 20px;
   right: 16px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), #6C9BFF);
-  box-shadow: 0 4px 16px rgba(79, 140, 255, 0.4);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.25);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: #fff;
-  font-size: 24px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  z-index: 101;
+  z-index: 11;
+  transition: all 0.2s;
 }
-.fab-add:active { transform: scale(0.92); }
+.btn-add-todo:active { transform: scale(0.95); }
+.btn-add-todo .add-icon {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* 浮动添加按钮 (隐藏) */
+.fab-add { display: none; }
 
 /* 过期提示 */
 .overdue-banner {
