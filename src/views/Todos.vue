@@ -327,7 +327,7 @@ const calendarCells = computed(() => {
   const startWeek = start.day()
   const totalDays = end.date()
   const cells: Array<{
-    date: string; day: number; currentMonth: boolean; isToday: boolean; todoCount: number; typeColors: string[]
+    date: string; day: number; currentMonth: boolean; isToday: boolean; todoCount: number; typeColors: string[]; cellStatus: string
   }> = []
   const today = dayjs().format('YYYY-MM-DD')
 
