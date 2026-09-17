@@ -45,7 +45,10 @@
             'other-month': !cell.currentMonth,
             'today': cell.isToday,
             'selected': cell.date === selectedDate,
-            'has-todo': cell.todoCount > 0
+            'cell-urgent': cell.cellStatus === 'urgent',
+            'cell-pending': cell.cellStatus === 'pending',
+            'cell-memo': cell.cellStatus === 'memo',
+            'cell-done': cell.cellStatus === 'done',
           }"
           @click="selectDate(cell.date)"
         >
@@ -103,6 +106,7 @@
             <div class="todo-text">{{ t.content }}</div>
             <div class="todo-meta">
               <span class="todo-tag" :class="'tag-' + t.type">{{ typeLabel(t.type) }}</span>
+              <span class="todo-priority" :class="'prio-' + priorityClass(t.priority)">{{ priorityLabel(t.priority) }}</span>
               <span class="todo-status" :style="{ color: getStatus(t).color }">{{ getStatus(t).text }}</span>
               <span class="todo-time">{{ formatDueDate(t.dueDate) }}</span>
             </div>
@@ -260,6 +264,10 @@ const typeColors: Record<string, string> = {
   study: '#00897B',
 }
 
+function priorityLabel(p: number) {
+  return ['不急', '普通', '紧急'][p] || '普通'
+}
+
 function getStatus(t: Todo): { text: string; color: string } {
   if (t.done) return { text: '✓ 已完成', color: '#34D399' }
   if (dayjs(t.dueDate).isBefore(dayjs(), 'day')) return { text: '⚠ 已过期', color: '#FB7185' }
@@ -308,14 +316,18 @@ const calendarCells = computed(() => {
 
 function makeCell(d: dayjs.Dayjs, currentMonth: boolean, today: string) {
   const date = d.format('YYYY-MM-DD')
-  const dayTodos = todoStore.todos.filter(t => t.dueDate === date && !t.done)
+  const undone = todoStore.todos.filter(t => t.dueDate === date && !t.done)
+  const done = todoStore.todos.filter(t => t.dueDate === date && t.done)
+  const hasNote = undone.some(t => t.type === 'note')
+  const hasUrgent = undone.some(t => t.priority === 2)
   return {
     date,
     day: d.date(),
     currentMonth,
     isToday: date === today,
-    todoCount: dayTodos.length,
-    typeColors: [...new Set(dayTodos.map(t => t.type))].map(t => typeColors[t] || '#999'),
+    todoCount: undone.length,
+    typeColors: [...new Set(undone.map(t => t.type))].map(t => typeColors[t] || '#999'),
+    cellStatus: undone.length > 0 ? (hasUrgent ? 'urgent' : hasNote ? 'memo' : 'pending') : done.length > 0 ? 'done' : 'none',
   }
 }
 
@@ -504,6 +516,11 @@ onMounted(async () => {
 .day-cell .dot { width: 4px; height: 4px; border-radius: 50%; }
 .day-cell.today { background: var(--primary-light); }
 .day-cell.today .day-num { color: var(--primary); font-weight: 700; }
+.day-cell.cell-urgent { background: #FEF2F2; }
+.day-cell.cell-pending { background: #FFFBEB; }
+.day-cell.cell-memo { background: #EFF6FF; }
+.day-cell.cell-done { background: #F0FDF4; }
+.day-cell.selected { background: var(--primary); }
 .day-cell.selected { background: var(--primary); }
 .day-cell.selected .day-num { color: #fff; }
 .day-cell.other-month { opacity: 0.3; }
@@ -651,6 +668,15 @@ onMounted(async () => {
 .tag-health { background: #FCE4EC; color: #E91E63; }
 .tag-study { background: #E0F2F1; color: #00897B; }
 .todo-status { font-size: 11px; font-weight: 600; }
+.todo-priority {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+.prio-high { background: #FEF2F2; color: #DC2626; }
+.prio-medium { background: #FFFBEB; color: #D97706; }
+.prio-low { background: #F0FDF4; color: #16A34A; }
 
 /* 右滑删除 */
 .todo-swipe { margin-bottom: 8px; }
