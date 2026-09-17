@@ -28,6 +28,13 @@ export const useTodoStore = defineStore('todos', () => {
     todos.value.unshift({ ...todo, id })
   }
 
+  async function updateTodo(id: number, content: string, type: TodoType, priority: Todo['priority'], dueDate: string) {
+    const updates = { content, type, priority, dueDate }
+    await db.todos.update(id, updates)
+    const idx = todos.value.findIndex(t => t.id === id)
+    if (idx !== -1) todos.value[idx] = { ...todos.value[idx], ...updates }
+  }
+
   async function toggleTodo(id: number) {
     const t = todos.value.find(t => t.id === id)
     if (!t) return
@@ -51,5 +58,5 @@ export const useTodoStore = defineStore('todos', () => {
     }
   }
 
-  return { todos, loaded, loadTodos, addTodo, toggleTodo, deleteTodo, cleanupOldTodos }
+  return { todos, loaded, loadTodos, addTodo, updateTodo, toggleTodo, deleteTodo, cleanupOldTodos }
 })

@@ -100,7 +100,7 @@
           <div class="todo-check" :class="{ checked: t.done }" @click="onToggle(t.id!)">
             <span v-if="t.done">✓</span>
           </div>
-          <div class="todo-content">
+          <div class="todo-content" @click="openEdit(t)">
             <div class="todo-text">{{ t.content }}</div>
             <div class="todo-meta">
               <span class="todo-tag" :class="'tag-' + t.type">{{ typeLabel(t.type) }}</span>
@@ -148,7 +148,7 @@
     <!-- 添加弹窗 -->
     <van-popup v-model:show="showAdd" position="bottom" round :style="{ height: 'auto' }">
       <div class="modal">
-        <h3>添加待办</h3>
+        <h3>{{ modalTitle }}</h3>
         <input
           v-model="form.content"
           class="modal-input"
@@ -187,7 +187,7 @@
         </div>
 
         <div class="modal-actions">
-          <button class="btn-cancel" @click="showAdd = false">取消</button>
+          <button class="btn-cancel" @click="showAdd = false; resetForm()">取消</button>
           <button class="btn-confirm" @click="onSubmit">确定</button>
         </div>
       </div>
@@ -227,6 +227,44 @@ const showAdd = ref(false)
 const showDatePicker = ref(false)
 const calendarCollapsed = ref(true)
 const datePickerValue = ref(['2026', '09', '17'])
+const editingTodo = ref<Todo | null>(null)
+
+const isEditing = computed(() => editingTodo.value !== null)
+const modalTitle = computed(() => isEditing.value ? '编辑待办' : '添加待办')
+
+function openEdit(t: Todo) {
+  editingTodo.value = t
+  form.value = {
+    content: t.content,
+    type: t.type,
+    priority: t.priority,
+    dueDate: t.dueDate,
+  }
+  datePickerValue.value = t.dueDate.split('-')
+  showAdd.value = true
+}
+
+function resetForm() {
+  editingTodo.value = null
+  form.value = { content: '', type: 'note', priority: 1, dueDate: dayjs().format('YYYY-MM-DD') }
+  datePickerValue.value = dayjs().format('YYYY-MM-DD').split('-')
+}
+
+async function onSubmit() {
+  if (!form.value.content.trim()) {
+    showToast('请输入内容')
+    return
+  }
+  if (isEditing.value && editingTodo.value) {
+    await todoStore.updateTodo(editingTodo.value.id!, form.value.content.trim(), form.value.type, form.value.priority, form.value.dueDate)
+    showToast('已更新')
+  } else {
+    await todoStore.addTodo(form.value.content.trim(), form.value.type, form.value.priority, form.value.dueDate)
+    showToast('已添加')
+  }
+  showAdd.value = false
+  resetForm()
+}
 
 const minDate = new Date(2025, 0, 1)
 const maxDate = new Date(2030, 11, 31)
@@ -374,21 +412,7 @@ function formatDueDate(date: string) {
   return d.format('YYYY年M月D日')
 }
 
-async function onSubmit() {
-  if (!form.value.content.trim()) {
-    showToast('请输入内容')
-    return
-  }
-  await todoStore.addTodo(
-    form.value.content.trim(),
-    form.value.type,
-    form.value.priority,
-    form.value.dueDate,
-  )
-  showAdd.value = false
-  form.value.content = ''
-  showToast('已添加')
-}
+
 
 function onDateConfirm({ selectedValues }: { selectedValues: string[] }) {
   form.value.dueDate = selectedValues.join('-')
