@@ -45,9 +45,7 @@
             'other-month': !cell.currentMonth,
             'today': cell.isToday,
             'selected': cell.date === selectedDate,
-            'cell-urgent': cell.cellStatus === 'urgent',
-            'cell-pending': cell.cellStatus === 'pending',
-            'cell-memo': cell.cellStatus === 'memo',
+            'cell-undone': cell.cellStatus === 'undone',
             'cell-done': cell.cellStatus === 'done',
           }"
           @click="selectDate(cell.date)"
@@ -318,8 +316,6 @@ function makeCell(d: dayjs.Dayjs, currentMonth: boolean, today: string) {
   const date = d.format('YYYY-MM-DD')
   const undone = todoStore.todos.filter(t => t.dueDate === date && !t.done)
   const done = todoStore.todos.filter(t => t.dueDate === date && t.done)
-  const hasNote = undone.some(t => t.type === 'note')
-  const hasUrgent = undone.some(t => t.priority === 2)
   return {
     date,
     day: d.date(),
@@ -327,7 +323,7 @@ function makeCell(d: dayjs.Dayjs, currentMonth: boolean, today: string) {
     isToday: date === today,
     todoCount: undone.length,
     typeColors: [...new Set(undone.map(t => t.type))].map(t => typeColors[t] || '#999'),
-    cellStatus: undone.length > 0 ? (hasUrgent ? 'urgent' : hasNote ? 'memo' : 'pending') : done.length > 0 ? 'done' : 'none',
+    cellStatus: undone.length > 0 ? 'undone' : done.length > 0 ? 'done' : 'none',
   }
 }
 
@@ -516,9 +512,7 @@ onMounted(async () => {
 .day-cell .dot { width: 4px; height: 4px; border-radius: 50%; }
 .day-cell.today { background: var(--primary-light); }
 .day-cell.today .day-num { color: var(--primary); font-weight: 700; }
-.day-cell.cell-urgent { background: #FEF2F2; }
-.day-cell.cell-pending { background: #FFFBEB; }
-.day-cell.cell-memo { background: #EFF6FF; }
+.day-cell.cell-undone { background: #FEF2F2; }
 .day-cell.cell-done { background: #F0FDF4; }
 .day-cell.selected { background: var(--primary); }
 .day-cell.selected { background: var(--primary); }
