@@ -19,9 +19,9 @@
     <div class="page-content">
       <!-- 父分类列表 -->
       <div class="parent-group" v-for="parent in filteredParents" :key="parent.id">
-        <div class="parent-header" :style="{ borderLeftColor: getCategoryColor(parent.name).bg }">
+        <div class="parent-header" :style="{ borderLeftColor: getCategoryColor(parent.name, parent.color).bg }">
           <span class="parent-icon">{{ parent.icon }}</span>
-          <span class="parent-name" :style="{ color: getCategoryColor(parent.name).text }">{{ parent.name }}</span>
+          <span class="parent-name" :style="{ color: getCategoryColor(parent.name, parent.color).text }">{{ parent.name }}</span>
           <span v-if="parent.builtin" class="builtin-tag">内置</span>
           <div class="parent-actions">
             <button class="p-action" @click="openAddModal(parent.id)">
@@ -38,7 +38,7 @@
         <!-- 子分类列表 -->
         <div class="child-list" v-if="getChildren(parent.id!).length > 0">
           <div class="child-item" v-for="child in getChildren(parent.id!)" :key="child.id">
-            <span class="child-icon" :style="{ background: getCategoryColor(child.name).light }">{{ child.icon }}</span>
+            <span class="child-icon" :style="{ background: getCategoryColor(child.name, child.color).light }">{{ child.icon }}</span>
             <span class="child-name">{{ child.name }}</span>
             <span v-if="child.builtin" class="builtin-tag child">内置</span>
             <span v-if="child.defaultAmount" class="child-default">¥{{ (child.defaultAmount / 100).toFixed(0) }}</span>
@@ -91,6 +91,12 @@
               <div v-for="icon in iconOptions" :key="icon" class="icon-option" :class="{ selected: formIcon === icon }" @click="formIcon = icon">{{ icon }}</div>
             </div>
           </div>
+          <div class="form-section">
+            <label class="form-label">颜色</label>
+            <div class="color-grid">
+              <div v-for="c in colorOptions" :key="c" class="color-option" :class="{ selected: formColor === c }" :style="{ background: c }" @click="formColor = c" />
+            </div>
+          </div>
         </template>
       </div>
     </van-popup>
@@ -112,6 +118,7 @@ const builtinEditing = ref(false)
 const formParentId = ref<number | null>(null)
 const formName = ref('')
 const formIcon = ref('📦')
+const formColor = ref('')
 const formDefaultAmount = ref('')
 
 const filteredParents = computed(() =>
@@ -119,6 +126,8 @@ const filteredParents = computed(() =>
     .filter(c => c.type === activeType.value && !c.parentId)
     .sort((a, b) => a.sort - b.sort)
 )
+
+const colorOptions = ['#86D560','#AF89D6','#59ADF3','#FF999A','#FFCC67','#5CC9B8','#7B8BC7','#B89E8A','#9EABB8','#F57C00','#E91E63','#00897B','#1976D2','#7B1FA2','#C45A5B','#53608F']
 
 const iconOptions = ['🍜','🚗','🛒','🏠','🎮','💊','📚','📱','👔','💅','🎉','✈️','💻','🚙','🐱','🏋️','📖','🚬','🧧','🔧','🤝','🛡️','📦','💰','🎁','📈','💼','📋','↩️','🏘️','🎊','🏆','♻️','💵','⛽','🔌','🚕','👗','🧴','🍪','🎬','🏥','🔬','🎓']
 
@@ -132,6 +141,7 @@ function openAddModal(parentId: number | null = null) {
   formParentId.value = parentId
   formName.value = ''
   formIcon.value = '📦'
+  formColor.value = colorOptions[Math.floor(Math.random() * colorOptions.length)]
   formDefaultAmount.value = ''
   showModal.value = true
 }
@@ -142,6 +152,7 @@ function openEditModal(cat: Category) {
   formParentId.value = cat.parentId || null
   formName.value = cat.name
   formIcon.value = cat.icon
+  formColor.value = cat.color || colorOptions[0]
   formDefaultAmount.value = cat.defaultAmount ? (cat.defaultAmount / 100).toFixed(0) : ''
   showModal.value = true
 }
@@ -181,6 +192,7 @@ async function handleSave() {
     type: activeType.value,
     name: formName.value.trim(),
     icon: formIcon.value,
+    color: formColor.value || undefined,
     sort: maxSort + 1,
     builtin: false,
     parentId: formParentId.value || undefined,
@@ -436,5 +448,24 @@ onMounted(async () => {
 .icon-option.selected {
   background: var(--primary-light);
   box-shadow: 0 0 0 2px var(--primary);
+}
+
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+}
+.color-option {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 2px solid transparent;
+}
+.color-option.selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--primary);
+  transform: scale(1.1);
 }
 </style>

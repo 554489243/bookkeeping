@@ -21,6 +21,7 @@ export interface Category {
   parentId?: number
   defaultAmount?: number
   builtin?: boolean
+  color?: string
 }
 
 export interface Book {
@@ -202,6 +203,13 @@ class BookkeepingDB extends Dexie {
       books: '++id, name, sort, isDefault'
     })
     this.version(8).stores({
+      records: '++id, type, categoryId, bookId, date, createdAt',
+      records_history: '++id, type, categoryId, bookId, date, createdAt',
+      categories: '++id, type, sort, parentId',
+      books: '++id, name, sort, isDefault',
+      todos: '++id, type, priority, dueDate, done, doneAt, createdAt'
+    })
+    this.version(9).stores({
       records: '++id, type, categoryId, bookId, date, createdAt',
       records_history: '++id, type, categoryId, bookId, date, createdAt',
       categories: '++id, type, sort, parentId',

@@ -105,9 +105,16 @@ export const CHILD_COLORS: Record<string, CategoryColor> = {
 const MISC_COLOR: CategoryColor = PALETTE.gray
 
 /**
- * 获取分类颜色（优先匹配子分类，再匹配父分类，最后返回默认）
+ * 获取分类颜色（优先自定义颜色，再匹配名称，最后返回默认）
  */
-export function getCategoryColor(name: string): CategoryColor {
+export function getCategoryColor(name: string, customColor?: string): CategoryColor {
+  if (customColor) {
+    return {
+      bg: customColor,
+      text: customColor,
+      light: customColor + '20',
+    }
+  }
   return CHILD_COLORS[name] || CATEGORY_COLORS[name] || MISC_COLOR
 }
 
