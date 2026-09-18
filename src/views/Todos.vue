@@ -11,15 +11,15 @@
         <h1>📋 待办 & 备忘</h1>
         <div class="date">{{ dateStr }}</div>
         <div class="stats">
-          <div class="stat">
+          <div class="stat" :class="{ active: activeFilter === 'undone' }" @click="toggleFilter('undone')">
             <div class="stat-num">{{ undoneCount }}</div>
             <div class="stat-label">待办</div>
           </div>
-          <div class="stat">
+          <div class="stat" :class="{ active: activeFilter === 'done' }" @click="toggleFilter('done')">
             <div class="stat-num">{{ doneCount }}</div>
             <div class="stat-label">已完成</div>
           </div>
-          <div class="stat">
+          <div class="stat" :class="{ active: activeFilter === 'overdue' }" @click="toggleFilter('overdue')">
             <div class="stat-num">{{ overdueCount }}</div>
             <div class="stat-label">已过期</div>
           </div>
@@ -44,7 +44,7 @@
           :class="{
             'other-month': !cell.currentMonth,
             'today': cell.isToday,
-            'selected': cell.date === selectedDate,
+            'selected': cell.date === activeDate,
             'cell-undone': cell.cellStatus === 'undone',
             'cell-done': cell.cellStatus === 'done',
           }"
@@ -73,20 +73,21 @@
       ⚠️ 有 <strong>{{ overdueCount }}</strong> 项已过期未完成
     </div>
 
-    <!-- 选中日期待办 -->
+    <!-- 待办列表 -->
     <div class="list-section">
       <div class="section-title">
-        {{ selectedDateLabel }}
-        <span class="badge">{{ selectedTodos.length }}</span>
+        {{ listTitle }}
+        <span class="badge">{{ visibleTodos.length }}</span>
+        <span v-if="activeFilter || activeDate" class="clear-btn" @click="clearFilter">显示全部</span>
       </div>
 
-      <div class="empty" v-if="selectedTodos.length === 0">
+      <div class="empty" v-if="visibleTodos.length === 0">
         <div class="empty-icon">📝</div>
-        <div class="empty-text">暂无待办</div>
+        <div class="empty-text">{{ emptyText }}</div>
       </div>
 
       <van-swipe-cell
-        v-for="t in selectedTodos"
+        v-for="t in visibleTodos"
         :key="t.id"
         class="todo-swipe"
       >
@@ -114,35 +115,6 @@
           <div class="swipe-delete" @click="onDelete(t.id!)">删除</div>
         </template>
       </van-swipe-cell>
-    </div>
-
-    <!-- 即将到来的待办 -->
-    <div class="list-section" v-if="upcomingTodos.length > 0" style="padding-top:0">
-      <div class="section-title">即将到来</div>
-      <div
-        v-for="t in upcomingTodos.slice(0, 5)"
-        :key="t.id"
-      >
-        <van-swipe-cell class="todo-swipe">
-          <div
-            class="todo-item"
-            :class="'priority-' + priorityClass(t.priority)"
-          >
-            <div class="todo-check" @click="onToggle(t.id!)"></div>
-            <div class="todo-content">
-              <div class="todo-text">{{ t.content }}</div>
-              <div class="todo-meta">
-                <span class="todo-tag" :class="'tag-' + t.type">{{ typeLabel(t.type) }}</span>
-                <span class="todo-status" :style="{ color: getStatus(t).color }">{{ getStatus(t).text }}</span>
-                <span class="todo-time">{{ formatDueDate(t.dueDate) }}</span>
-              </div>
-            </div>
-          </div>
-          <template #right>
-            <div class="swipe-delete" @click="onDelete(t.id!)">删除</div>
-          </template>
-        </van-swipe-cell>
-      </div>
     </div>
 
     <!-- 添加弹窗 -->
@@ -222,11 +194,14 @@ const todoStore = useTodoStore()
 
 const dateStr = computed(() => dayjs().format('YYYY年M月D日 dddd'))
 const calendarMonth = ref(dayjs())
-const selectedDate = ref(dayjs().format('YYYY-MM-DD'))
+/** 选中的日期；null = 不限日期（配合 activeFilter 展示全部） */
+const activeDate = ref<string | null>(null)
+/** 顶部统计卡的筛选态；null = 不筛选 */
+const activeFilter = ref<null | 'undone' | 'done' | 'overdue'>(null)
 const showAdd = ref(false)
 const showDatePicker = ref(false)
 const calendarCollapsed = ref(true)
-const datePickerValue = ref(['2026', '09', '17'])
+const datePickerValue = ref(dayjs().format('YYYY-MM-DD').split('-'))
 const editingTodo = ref<Todo | null>(null)
 
 const isEditing = computed(() => editingTodo.value !== null)
@@ -305,9 +280,9 @@ function priorityLabel(p: number) {
 }
 
 function getStatus(t: Todo): { text: string; color: string } {
-  if (t.done) return { text: '✓ 已完成', color: '#34D399' }
-  if (dayjs(t.dueDate).isBefore(dayjs(), 'day')) return { text: '⚠ 已过期', color: '#FB7185' }
-  return { text: '待完成', color: '#94A3B8' }
+  if (t.done) return { text: '✓ 已完成', color: 'var(--success)' }
+  if (dayjs(t.dueDate).isBefore(dayjs(), 'day')) return { text: '⚠ 已过期', color: 'var(--danger)' }
+  return { text: '待完成', color: 'var(--text-secondary)' }
 }
 
 function typeLabel(type: string) {
@@ -367,24 +342,75 @@ function makeCell(d: dayjs.Dayjs, currentMonth: boolean, today: string) {
 
 function prevMonth() { calendarMonth.value = calendarMonth.value.subtract(1, 'month') }
 function nextMonth() { calendarMonth.value = calendarMonth.value.add(1, 'month') }
-function selectDate(date: string) { selectedDate.value = date }
 
-// 选中日期的待办
-const selectedTodos = computed(() => {
-  return todoStore.todos
-    .filter(t => t.dueDate === selectedDate.value)
-    .sort((a, b) => {
-      if (a.done !== b.done) return a.done ? 1 : -1
-      return b.priority - a.priority
-    })
+/** 点日期 → 只看那天；再点同一日期 → 取消，回到全部 */
+function selectDate(date: string) {
+  if (activeDate.value === date) {
+    activeDate.value = null
+    return
+  }
+  activeDate.value = date
+  activeFilter.value = null
+}
+
+/** 点顶部统计卡 → 筛选；再点一次取消 */
+function toggleFilter(f: 'undone' | 'done' | 'overdue') {
+  activeFilter.value = activeFilter.value === f ? null : f
+  if (activeFilter.value) activeDate.value = null
+}
+
+/** 一键回到全部 */
+function clearFilter() {
+  activeFilter.value = null
+  activeDate.value = null
+}
+
+// 当前列表（筛选 / 日期视图统一走这里，条数与顶部统计口径一致）
+const visibleTodos = computed(() => {
+  const today = dayjs().format('YYYY-MM-DD')
+  let list = todoStore.todos.slice()
+
+  if (activeFilter.value === 'undone') list = list.filter(t => !t.done)
+  else if (activeFilter.value === 'done') list = list.filter(t => t.done)
+  else if (activeFilter.value === 'overdue') list = list.filter(t => !t.done && t.dueDate < today)
+
+  if (activeDate.value) list = list.filter(t => t.dueDate === activeDate.value)
+
+  // 已完成：按完成时间倒序（最近完成的在前）
+  if (activeFilter.value === 'done') {
+    return list.sort((a, b) => (b.doneAt || '').localeCompare(a.doneAt || ''))
+  }
+  // 已过期 / 指定日期：按日期升序
+  if (activeFilter.value === 'overdue' || activeDate.value) {
+    return list.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+  }
+  // 全部 / 未完成：未完成在前（按日期升序），已完成沉底
+  return list.sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1
+    if (a.done) return (b.doneAt || '').localeCompare(a.doneAt || '')
+    return a.dueDate.localeCompare(b.dueDate)
+  })
 })
 
-const selectedDateLabel = computed(() => {
-  const d = dayjs(selectedDate.value)
-  const today = dayjs().startOf('day')
-  if (d.isSame(today, 'day')) return '今天'
-  if (d.isSame(today.add(1, 'day'), 'day')) return '明天'
-  return d.format('M月D日')
+const listTitle = computed(() => {
+  if (activeFilter.value === 'undone') return '未完成'
+  if (activeFilter.value === 'done') return '已完成'
+  if (activeFilter.value === 'overdue') return '已过期'
+  if (activeDate.value) {
+    const d = dayjs(activeDate.value)
+    const today = dayjs().startOf('day')
+    if (d.isSame(today, 'day')) return '今天 · ' + d.format('M月D日')
+    if (d.isSame(today.add(1, 'day'), 'day')) return '明天 · ' + d.format('M月D日')
+    return d.format('M月D日')
+  }
+  return '全部待办'
+})
+
+const emptyText = computed(() => {
+  if (activeFilter.value === 'done') return '还没有已完成的待办'
+  if (activeFilter.value === 'overdue') return '没有过期未完成的事项'
+  if (activeDate.value) return '这天没有待办'
+  return '还没有待办，点右上角记一条'
 })
 
 // 统计数据
@@ -393,14 +419,6 @@ const doneCount = computed(() => todoStore.todos.filter(t => t.done).length)
 const overdueCount = computed(() => {
   const today = dayjs().format('YYYY-MM-DD')
   return todoStore.todos.filter(t => !t.done && t.dueDate < today).length
-})
-
-// 即将到来的待办（明天及以后，未完成）
-const upcomingTodos = computed(() => {
-  const tomorrow = dayjs().add(1, 'day').format('YYYY-MM-DD')
-  return todoStore.todos
-    .filter(t => !t.done && t.dueDate >= tomorrow)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
 })
 
 function formatDueDate(date: string) {
@@ -444,12 +462,22 @@ onMounted(async () => {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: linear-gradient(135deg, #4F8CFF 0%, #6C9BFF 100%);
+  background: var(--primary);
   padding-bottom: 12px;
+}
+/* 叠一层白色高光做出渐变层次（不写死颜色，完全跟随主题） */
+.sticky-area::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 55%);
+  pointer-events: none;
 }
 
 /* 顶部 */
 .header {
+  position: relative;
+  z-index: 1;
   color: #fff;
   padding: 20px 20px 16px;
   border-radius: 0;
@@ -468,7 +496,18 @@ onMounted(async () => {
   flex: 1;
   backdrop-filter: blur(10px);
   text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1.5px solid transparent;
 }
+.header .stat:active { transform: scale(0.96); }
+/* 选中态：白底 + 主题色文字 */
+.header .stat.active {
+  background: #fff;
+  color: var(--primary);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+.header .stat.active .stat-label { opacity: 1; }
 .header .stat-num { font-size: 20px; font-weight: 700; }
 .header .stat-label { font-size: 11px; opacity: 0.85; }
 
@@ -536,19 +575,20 @@ onMounted(async () => {
 .day-cell .dot { width: 4px; height: 4px; border-radius: 50%; }
 .day-cell.today { background: var(--primary-light); }
 .day-cell.today .day-num { color: var(--primary); font-weight: 700; }
-.day-cell.cell-undone { background: #FEF2F2; }
-.day-cell.cell-done { background: #F0FDF4; }
-.day-cell.selected { background: var(--primary); }
+.day-cell.cell-undone { background: var(--danger-light); }
+.day-cell.cell-done { background: var(--success-light); }
 .day-cell.selected { background: var(--primary); }
 .day-cell.selected .day-num { color: #fff; }
 .day-cell.other-month { opacity: 0.3; }
 
 /* 日历折叠按钮 */
 .calendar-toggle {
+  position: relative;
+  z-index: 1;
   text-align: center;
   padding: 8px;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   margin-top: 4px;
 }
@@ -584,13 +624,13 @@ onMounted(async () => {
 
 /* 过期提示 */
 .overdue-banner {
-  background: linear-gradient(135deg, #FEF2F2, #FFF1F2);
-  border: 1px solid #FECACA;
+  background: var(--danger-light);
+  border: 1px solid var(--danger-light);
   border-radius: var(--radius-sm);
   padding: 10px 14px;
   margin: 12px 16px;
   font-size: 13px;
-  color: #DC2626;
+  color: var(--danger);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -615,6 +655,17 @@ onMounted(async () => {
   padding: 1px 6px;
   border-radius: 10px;
 }
+.section-title .clear-btn {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 3px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.section-title .clear-btn:active { opacity: 0.7; }
 
 .empty {
   text-align: center;
@@ -692,9 +743,9 @@ onMounted(async () => {
   border-radius: 6px;
   font-weight: 600;
 }
-.prio-high { background: #FEF2F2; color: #DC2626; }
-.prio-medium { background: #FFFBEB; color: #D97706; }
-.prio-low { background: #F0FDF4; color: #16A34A; }
+.prio-high { background: var(--danger-light); color: var(--danger); }
+.prio-medium { background: var(--warning-light); color: var(--warning); }
+.prio-low { background: var(--success-light); color: var(--success); }
 
 /* 右滑删除 */
 .todo-swipe { margin-bottom: 8px; }
