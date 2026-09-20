@@ -1,32 +1,42 @@
 <template>
   <div class="todo-page">
-    <!-- 顶部工具栏 (Sticky) -->
+    <!-- 顶部（Sticky）：日期 + 今日进度 + 筛选 -->
     <div class="topbar-wrap">
-      <div class="topbar">
-        <img class="mascot" :src="capybaraFace" alt="" />
-        <div class="chips">
-          <div class="chip" :class="{ active: activeFilter === 'undone' }" @click="toggleFilter('undone')">
-            未完成 <b>{{ undoneCount }}</b>
-          </div>
-          <div class="chip" :class="{ active: activeFilter === 'done' }" @click="toggleFilter('done')">
-            已完成 <b>{{ doneCount }}</b>
-          </div>
-          <div class="chip" :class="{ active: activeFilter === 'overdue' }" @click="toggleFilter('overdue')">
-            过期 <b>{{ overdueCount }}</b>
-          </div>
+      <div class="hero">
+        <img class="mascot" :src="mascotFace" alt="" />
+        <div class="hero-text">
+          <div class="hero-date">{{ todayLabel }}</div>
+          <div class="hero-sub">{{ progressText }}</div>
         </div>
-        <div class="actions">
+        <div class="hero-acts">
           <div class="icon-btn" @click="showAdd = true">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
               <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
             </svg>
           </div>
           <div class="icon-btn" :class="{ on: !calendarCollapsed }" @click="calendarCollapsed = !calendarCollapsed">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
               <rect x="2" y="3.5" width="12" height="10.5" rx="2" stroke="currentColor" stroke-width="1.4" />
               <path d="M2 6.8h12M5.2 2v3M10.8 2v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
             </svg>
           </div>
+        </div>
+      </div>
+
+      <div class="hero-bar" v-if="todayStat.total > 0">
+        <i><b :style="{ width: todayPercent + '%' }"></b></i>
+        <em>{{ todayStat.done }}/{{ todayStat.total }}</em>
+      </div>
+
+      <div class="chips">
+        <div class="chip" :class="{ active: activeFilter === 'undone' }" @click="toggleFilter('undone')">
+          未完成 <b>{{ undoneCount }}</b>
+        </div>
+        <div class="chip" :class="{ active: activeFilter === 'done' }" @click="toggleFilter('done')">
+          已完成 <b>{{ doneCount }}</b>
+        </div>
+        <div class="chip" :class="{ active: activeFilter === 'overdue' }" @click="toggleFilter('overdue')">
+          过期 <b>{{ overdueCount }}</b>
         </div>
       </div>
     </div>
@@ -51,7 +61,6 @@
             'today': cell.isToday,
             'selected': cell.date === activeDate,
             'cell-undone': cell.cellStatus === 'undone',
-            'cell-done': cell.cellStatus === 'done',
           }"
           @click="selectDate(cell.date)"
         >
@@ -78,7 +87,7 @@
       </div>
 
       <div class="empty" v-if="groupedTodos.length === 0">
-        <img class="empty-capy" :src="capybaraMain" alt="水豚" />
+        <img class="empty-mascot" :src="emptyMascot" alt="" />
         <div class="empty-text">{{ emptyText }}</div>
         <div class="empty-sub" v-if="!activeFilter && !activeDate">点右上角的 + ，把想到的事记下来</div>
         <button class="empty-btn" v-if="!activeFilter && !activeDate" @click="showAdd = true">记一条</button>
@@ -86,7 +95,7 @@
 
       <div v-for="group in groupedTodos" :key="group.date" class="date-group">
         <div class="date-group-header">
-          <span class="dg-label" :class="{ overdue: group.isOverdue }">
+          <span class="dg-label" :class="{ today: group.isToday }">
             <span class="dg-emoji">{{ group.icon }}</span>{{ group.label }}
           </span>
           <span class="dg-right">
@@ -94,7 +103,7 @@
               <i class="dg-bar"><b :style="{ width: todayPercent + '%' }"></b></i>
               <em>{{ todayStat.done }}/{{ todayStat.total }}</em>
             </span>
-            <span class="dg-count">{{ group.todos.length }} 项</span>
+            <span class="dg-count" v-else>{{ group.todos.length }} 项</span>
           </span>
         </div>
 
@@ -103,7 +112,8 @@
             class="todo-item"
             :class="[
               'priority-' + priorityClass(t.priority),
-              t.done ? 'done' : ''
+              t.done ? 'done' : '',
+              t.ignored ? 'ignored' : ''
             ]"
           >
             <div class="todo-avatar" :style="{ background: typeBg(t.type) }">{{ typeIcon(t.type) }}</div>
@@ -114,10 +124,20 @@
                 <span class="todo-priority" :class="'prio-' + priorityClass(t.priority)">
                   {{ priorityIcon(t.priority) }} {{ priorityLabel(t.priority) }}
                 </span>
+                <span class="todo-overdue" v-if="isItemOverdue(t)">已过期</span>
+                <span class="todo-ignored-tag" v-if="t.ignored">已忽略</span>
               </div>
             </div>
-            <div class="todo-check" :class="{ checked: t.done }" @click="onToggle(t.id!)">
-              <span v-if="t.done">✓</span>
+            <div class="todo-acts">
+              <div class="todo-ignore" v-if="!t.done" @click.stop="onIgnore(t)">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="6.1" stroke="currentColor" stroke-width="1.3" />
+                  <path d="M4.7 11.3l6.6-6.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+                </svg>
+              </div>
+              <div class="todo-check" :class="{ checked: t.done }" @click="onToggle(t.id!)">
+                <span v-if="t.done">✓</span>
+              </div>
             </div>
           </div>
           <template #right>
@@ -199,8 +219,9 @@ import { Todo } from '@/api/db'
 import dayjs from 'dayjs'
 import { showToast } from 'vant'
 import TabBar from '@/components/TabBar.vue'
-import capybaraMain from '@/assets/capybara-main.png'
-import capybaraFace from '@/assets/capybara-face.png'
+import mascotFace from '@/assets/mascot-face.png'
+import mascotBear from '@/assets/mascot-bear.png'
+import mascotPanda from '@/assets/mascot-panda.png'
 
 const todoStore = useTodoStore()
 
@@ -327,7 +348,6 @@ function priorityIcon(p: number) {
 function groupIcon(date: string, today: string) {
   const d = dayjs(date)
   const t = dayjs(today)
-  if (date < today) return '⏰'
   if (d.isSame(t, 'day')) return '📌'
   if (d.isSame(t.add(1, 'day'), 'day')) return '🌤'
   if (d.isSame(t.add(2, 'day'), 'day')) return '🗓'
@@ -357,29 +377,38 @@ const calendarCells = computed(() => {
   }> = []
   const today = dayjs().format('YYYY-MM-DD')
 
+  // 先按日期归集一次（跳过已忽略），避免 42 个格子各自扫一遍全表
+  const byDate = new Map<string, Todo[]>()
+  for (const t of todoStore.todos) {
+    if (t.ignored) continue
+    const arr = byDate.get(t.dueDate)
+    if (arr) arr.push(t)
+    else byDate.set(t.dueDate, [t])
+  }
+
   // 上月填充
   for (let i = startWeek - 1; i >= 0; i--) {
     const d = start.subtract(i + 1, 'day')
-    cells.push(makeCell(d, false, today))
+    cells.push(makeCell(d, byDate, false, today))
   }
   // 当月
   for (let i = 1; i <= totalDays; i++) {
     const d = start.add(i - 1, 'day')
-    cells.push(makeCell(d, true, today))
+    cells.push(makeCell(d, byDate, true, today))
   }
   // 下月填充
   const remain = 42 - cells.length
   for (let i = 1; i <= remain; i++) {
     const d = end.add(i, 'day')
-    cells.push(makeCell(d, false, today))
+    cells.push(makeCell(d, byDate, false, today))
   }
   return cells
 })
 
-function makeCell(d: dayjs.Dayjs, currentMonth: boolean, today: string) {
+function makeCell(d: dayjs.Dayjs, byDate: Map<string, Todo[]>, currentMonth: boolean, today: string) {
   const date = d.format('YYYY-MM-DD')
-  const undone = todoStore.todos.filter(t => t.dueDate === date && !t.done)
-  const done = todoStore.todos.filter(t => t.dueDate === date && t.done)
+  // 已忽略的条目在归集时就被排除了，这里只需判完成
+  const undone = (byDate.get(date) ?? []).filter(t => !t.done)
   return {
     date,
     day: d.date(),
@@ -387,7 +416,8 @@ function makeCell(d: dayjs.Dayjs, currentMonth: boolean, today: string) {
     isToday: date === today,
     todoCount: undone.length,
     typeColors: [...new Set(undone.map(t => t.type))].map(t => typeColors[t] || '#999'),
-    cellStatus: undone.length > 0 ? 'undone' : done.length > 0 ? 'done' : 'none',
+    // 只有「还剩未完成」才标色；已完成 / 已忽略 / 无记录一律无色
+    cellStatus: undone.length > 0 ? 'undone' : 'none',
   }
 }
 
@@ -416,26 +446,30 @@ function clearFilter() {
   activeDate.value = null
 }
 
-/** 筛选后的扁平列表 */
+/** 筛选后的扁平列表（已忽略的不算未完成、也不算过期） */
 const filteredTodos = computed(() => {
   const today = dayjs().format('YYYY-MM-DD')
   let list = todoStore.todos.slice()
 
-  if (activeFilter.value === 'undone') list = list.filter(t => !t.done)
+  if (activeFilter.value === 'undone') list = list.filter(t => !t.done && !t.ignored)
   else if (activeFilter.value === 'done') list = list.filter(t => t.done)
-  else if (activeFilter.value === 'overdue') list = list.filter(t => !t.done && t.dueDate < today)
+  else if (activeFilter.value === 'overdue') list = list.filter(t => !t.done && !t.ignored && t.dueDate < today)
 
   if (activeDate.value) list = list.filter(t => t.dueDate === activeDate.value)
 
   return list
 })
 
-/** 组头文案：今天 / 明天 / 后天 / 已过期 */
+/** 单条待办是否「已过期」：过期是条目的属性，跟所属日期组无关 */
+function isItemOverdue(t: Todo) {
+  return !t.done && !t.ignored && t.dueDate < dayjs().format('YYYY-MM-DD')
+}
+
+/** 组头文案：今天 / 明天 / 后天 / 其余按日期；是否过期由单条待办自己标注 */
 function groupLabel(date: string, today: string) {
   const d = dayjs(date)
   const t = dayjs(today)
   const wd = d.format('dddd')
-  if (date < today) return `已过期 · ${d.format('M月D日')} ${wd}`
   if (d.isSame(t, 'day')) return `今天 · ${d.format('M月D日')} ${wd}`
   if (d.isSame(t.add(1, 'day'), 'day')) return `明天 · ${d.format('M月D日')} ${wd}`
   if (d.isSame(t.add(2, 'day'), 'day')) return `后天 · ${d.format('M月D日')} ${wd}`
@@ -453,31 +487,41 @@ const groupedTodos = computed(() => {
     map.get(t.dueDate)!.push(t)
   })
 
-  const groups = Array.from(map.entries()).map(([date, todos]) => ({
-    date,
-    label: groupLabel(date, today),
-    icon: groupIcon(date, today),
-    isToday: date === today,
-    isOverdue: date < today,
-    todos: todos.slice().sort((a, b) => {
-      if (a.done !== b.done) return a.done ? 1 : -1
-      return 0
-    }),
-  }))
+  const groups = Array.from(map.entries()).map(([date, todos]) => {
+    // 组内排序：未完成在前 → 已完成 → 已忽略（后两类都算「不用管了」，沉底）
+    const rank = (t: Todo) => (t.ignored ? 2 : t.done ? 1 : 0)
+    const sorted = todos.slice().sort((a, b) => rank(a) - rank(b))
+    return {
+      date,
+      label: groupLabel(date, today),
+      icon: groupIcon(date, today),
+      isToday: date === today,
+      todos: sorted,
+    }
+  })
 
   return groups.sort((a, b) => a.date.localeCompare(b.date))
 })
 
-/** 今天的完成进度（不受筛选影响，始终反映真实进度） */
+/** 今天的完成进度（不受筛选影响，始终反映真实进度；已忽略的不算） */
 const todayStat = computed(() => {
   const today = dayjs().format('YYYY-MM-DD')
-  const list = todoStore.todos.filter(t => t.dueDate === today)
+  const list = todoStore.todos.filter(t => t.dueDate === today && !t.ignored)
   return { total: list.length, done: list.filter(t => t.done).length }
 })
 
 const todayPercent = computed(() => {
   if (todayStat.value.total === 0) return 0
   return Math.round((todayStat.value.done / todayStat.value.total) * 100)
+})
+
+/** 顶部日期与一句进度文案 */
+const todayLabel = computed(() => dayjs().format('M月D日 dddd'))
+const progressText = computed(() => {
+  const { total, done } = todayStat.value
+  if (total === 0) return '今天还没有安排'
+  if (done >= total) return '今天全部搞定，漂亮'
+  return `今天还剩 ${total - done} 件`
 })
 
 const listTitle = computed(() => {
@@ -501,12 +545,18 @@ const emptyText = computed(() => {
   return '还没有待办'
 })
 
-// 统计数据
-const undoneCount = computed(() => todoStore.todos.filter(t => !t.done).length)
+/** 空状态配图：清单完全空（全新）用「热爱工作」小熊，筛选/指定日期查无结果时用熊猫 */
+const emptyMascot = computed(() => {
+  if (!activeFilter.value && !activeDate.value) return mascotBear
+  return mascotPanda
+})
+
+// 统计数据（已忽略的不计入未完成 / 过期）
+const undoneCount = computed(() => todoStore.todos.filter(t => !t.done && !t.ignored).length)
 const doneCount = computed(() => todoStore.todos.filter(t => t.done).length)
 const overdueCount = computed(() => {
   const today = dayjs().format('YYYY-MM-DD')
-  return todoStore.todos.filter(t => !t.done && t.dueDate < today).length
+  return todoStore.todos.filter(t => !t.done && !t.ignored && t.dueDate < today).length
 })
 
 function onDateConfirm({ selectedValues }: { selectedValues: string[] }) {
@@ -520,10 +570,17 @@ async function onToggle(id: number) {
   await todoStore.toggleTodo(id)
   // 只有「打勾完成」才给正反馈；取消勾选不打扰
   if (!wasDone) {
-    const left = todoStore.todos.filter(t => !t.done).length
+    const left = todoStore.todos.filter(t => !t.done && !t.ignored).length
     const msg = left === 0 ? '🎊 全部清空，太强了！' : PRAISE[Math.floor(Math.random() * PRAISE.length)]
     showToast({ message: msg, duration: 1200 })
   }
+}
+
+/** 忽略 / 取消忽略：不删除，只是不再计入未完成与过期 */
+async function onIgnore(t: Todo) {
+  const wasIgnored = !!t.ignored
+  await todoStore.toggleIgnored(t.id!)
+  showToast({ message: wasIgnored ? '↩️ 已恢复，重新计入' : '🙈 已忽略，不再提醒', duration: 1200 })
 }
 
 async function onDelete(id: number) {
@@ -542,13 +599,13 @@ onMounted(async () => {
   padding-top: 0;
 }
 
-/* ===== 顶部工具栏（sticky，仅这一条常驻） ===== */
+/* ===== 顶部（sticky）：日期 + 今日进度 + 筛选 ===== */
 .topbar-wrap {
   position: sticky;
   top: 0;
   z-index: 10;
   background: var(--primary);
-  padding-bottom: 10px;
+  padding-bottom: 12px;
 }
 /* 叠一层白色高光做出层次（不写死颜色，完全跟随主题） */
 .topbar-wrap::before {
@@ -558,57 +615,45 @@ onMounted(async () => {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 55%);
   pointer-events: none;
 }
-.topbar {
+
+/* 第一行：头像 + 日期 + 操作按钮 */
+.hero {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px 0;
+  gap: 10px;
+  padding: 12px 14px 0;
 }
-.topbar .mascot {
-  width: 26px;
-  height: 26px;
-  border-radius: 9px;
+.mascot {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
   flex-shrink: 0;
   display: block;
   object-fit: cover;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
-.topbar .chips {
-  display: flex;
-  gap: 5px;
-  flex: 1;
-  min-width: 0;
-}
-.topbar .chip {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.2);
+.hero-text { flex: 1; min-width: 0; }
+.hero-date {
+  font-size: 15px;
+  font-weight: 600;
   color: #fff;
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.18s;
-  border: 1.5px solid transparent;
+  line-height: 1.25;
 }
-.topbar .chip b { font-weight: 700; }
-.topbar .chip:active { transform: scale(0.95); }
-.topbar .chip.active {
-  background: #fff;
-  color: var(--primary);
+.hero-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.82);
+  margin-top: 2px;
 }
-.topbar .actions {
+.hero-acts {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
 }
-.topbar .icon-btn {
-  width: 28px;
-  height: 28px;
+.icon-btn {
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.22);
   color: #fff;
@@ -618,8 +663,70 @@ onMounted(async () => {
   cursor: pointer;
   transition: all 0.18s;
 }
-.topbar .icon-btn:active { transform: scale(0.9); }
-.topbar .icon-btn.on { background: #fff; color: var(--primary); }
+.icon-btn:active { transform: scale(0.9); }
+.icon-btn.on { background: #fff; color: var(--primary); }
+
+/* 第二行：今日进度条 */
+.hero-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px 0;
+}
+.hero-bar i {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.26);
+  overflow: hidden;
+  display: block;
+}
+.hero-bar i b {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #fff;
+  transition: width 0.4s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+.hero-bar em {
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* 第三行：筛选胶囊 */
+.chips {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px 0;
+}
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.18s;
+  border: 1.5px solid transparent;
+}
+.chip b { font-weight: 700; }
+.chip:active { transform: scale(0.95); }
+.chip.active {
+  background: #fff;
+  color: var(--primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
 
 /* ===== 日历（展开时，随页面滚动） ===== */
 .calendar-card {
@@ -684,7 +791,6 @@ onMounted(async () => {
 .day-cell.today { background: var(--primary-light); }
 .day-cell.today .day-num { color: var(--primary); font-weight: 700; }
 .day-cell.cell-undone { background: var(--danger-light); }
-.day-cell.cell-done { background: var(--success-light); }
 .day-cell.selected { background: var(--primary); }
 .day-cell.selected .day-num { color: #fff; }
 .day-cell.other-month { opacity: 0.3; }
@@ -721,14 +827,12 @@ onMounted(async () => {
   text-align: center;
   padding: 44px 0 40px;
 }
-.empty-capy {
-  width: 88px;
+.empty-mascot {
   height: 88px;
+  width: auto;
   margin: 0 auto 16px;
-  border-radius: 24px;
   display: block;
-  object-fit: cover;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
 }
 .empty-text { font-size: 14px; font-weight: 600; color: var(--text); }
 .empty-sub { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
@@ -751,7 +855,7 @@ onMounted(async () => {
   gap: 4px;
 }
 .dg-label .dg-emoji { font-size: 13px; }
-.dg-label.overdue { color: var(--danger); }
+.dg-label.today { color: var(--primary); }
 .dg-right { display: flex; align-items: center; gap: 8px; }
 .dg-count { font-size: 11px; color: var(--text-secondary); }
 
@@ -805,9 +909,17 @@ onMounted(async () => {
 .todo-item.priority-high::before { background: var(--danger); }
 .todo-item.priority-medium::before { background: var(--warning); }
 .todo-item.priority-low::before { background: var(--success); }
-.todo-item.done { opacity: 0.55; }
-.todo-item.done .todo-text { text-decoration: line-through; color: var(--text-secondary); }
-.todo-item.done .todo-avatar { filter: grayscale(1); opacity: 0.7; }
+/* 已完成：留 ✔ 与灰化，但文字不划线 */
+.todo-item.done .todo-text { color: var(--text-secondary); }
+.todo-item.done .todo-avatar { filter: grayscale(1); opacity: 0.65; }
+.todo-item.done .todo-tag,
+.todo-item.done .todo-priority { opacity: 0.55; }
+
+/* 已忽略：文字划掉，整条压暗，左侧优先级色条也退成灰色 */
+.todo-item.ignored { opacity: 0.62; }
+.todo-item.ignored .todo-text { text-decoration: line-through; color: var(--text-secondary); }
+.todo-item.ignored .todo-avatar { filter: grayscale(1); opacity: 0.6; }
+.todo-item.ignored::before { background: var(--border); }
 
 /* 类型头像：给列表上色 */
 .todo-avatar {
@@ -821,6 +933,26 @@ onMounted(async () => {
   flex-shrink: 0;
   transition: filter 0.2s, opacity 0.2s;
 }
+
+/* 右侧操作区：忽略 + 完成 */
+.todo-acts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.todo-ignore {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.18s, transform 0.18s;
+}
+.todo-ignore:active { transform: scale(0.85); color: var(--danger); }
 
 .todo-check {
   width: 24px; height: 24px;
@@ -877,6 +1009,24 @@ onMounted(async () => {
 .prio-high { background: var(--danger-light); color: var(--danger); }
 .prio-medium { background: var(--warning-light); color: var(--warning); }
 .prio-low { background: var(--success-light); color: var(--success); }
+
+/* 单条状态标：过期是条目自己的属性 */
+.todo-overdue {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--danger-light);
+  color: var(--danger);
+}
+.todo-ignored-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-secondary);
+}
 
 /* 右滑删除 */
 .swipe-delete {

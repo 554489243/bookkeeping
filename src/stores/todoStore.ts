@@ -40,7 +40,22 @@ export const useTodoStore = defineStore('todos', () => {
     if (!t) return
     t.done = !t.done
     t.doneAt = t.done ? dayjs().toISOString() : undefined
-    await db.todos.update(id, { done: t.done, doneAt: t.doneAt })
+    // 完成与忽略互斥：勾上完成就取消忽略
+    if (t.done) t.ignored = false
+    await db.todos.update(id, { done: t.done, doneAt: t.doneAt, ignored: t.ignored })
+  }
+
+  /** 忽略 / 取消忽略：不删除，只是不再计入未完成与过期 */
+  async function toggleIgnored(id: number) {
+    const t = todos.value.find(t => t.id === id)
+    if (!t) return
+    t.ignored = !t.ignored
+    // 忽略一条已完成的没有意义，顺手取消完成标记
+    if (t.ignored && t.done) {
+      t.done = false
+      t.doneAt = undefined
+    }
+    await db.todos.update(id, { ignored: t.ignored, done: t.done, doneAt: t.doneAt })
   }
 
   async function deleteTodo(id: number) {
@@ -58,5 +73,5 @@ export const useTodoStore = defineStore('todos', () => {
     }
   }
 
-  return { todos, loaded, loadTodos, addTodo, updateTodo, toggleTodo, deleteTodo, cleanupOldTodos }
+  return { todos, loaded, loadTodos, addTodo, updateTodo, toggleTodo, toggleIgnored, deleteTodo, cleanupOldTodos }
 })

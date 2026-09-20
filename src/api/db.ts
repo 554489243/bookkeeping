@@ -43,6 +43,8 @@ export interface Todo {
   dueDate: string
   done: boolean
   doneAt?: string
+  /** 已忽略：不删掉但也不再计入未完成/过期，列表里划线展示 */
+  ignored?: boolean
   createdAt: string
 }
 
