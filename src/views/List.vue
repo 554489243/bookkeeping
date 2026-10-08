@@ -11,8 +11,8 @@
       <div class="overview-top">
         <div class="overview-expense">
           <div class="label">
-            <span class="label-text">{{ primaryLabel }}</span>
-            <button v-if="isCategoryFiltering" class="filter-clear" @click="clearCategoryFilter">清除 ✕</button>
+            <span v-if="isCategoryFiltering" class="label-dot" :style="{ background: activeCategoryColor }"></span>
+            <span>{{ primaryLabel }}</span>
           </div>
           <div class="amount">{{ formatAmount(primaryAmount) }}</div>
         </div>
@@ -22,7 +22,7 @@
             <button class="period-label" :class="{ all: !hasActivePeriod }" @click="showMonthPicker = true">
               {{ selectedYear && selectedMonth ? `${selectedYear}年${String(selectedMonth).padStart(2, '0')}月` : '全部' }}
             </button>
-            <button class="period-arrow" @click="nextMonth">›</button>
+            <button class="period-arrow" :disabled="isCurrentMonth" @click="nextMonth">›</button>
           </div>
           <div class="period-row" v-if="hasActivePeriod">
             <button class="period-reset" @click="resetPeriod">全部</button>
@@ -144,7 +144,7 @@ import { useRecordStore } from '@/stores/recordStore'
 import { useCategoryStore } from '@/stores/categoryStore'
 import { useBookStore } from '@/stores/bookStore'
 import { formatAmount } from '@/utils/format'
-import { getCategoryColor } from '@/utils/colors'
+import { resolveCategoryColor, getCategoryColor } from '@/utils/colors'
 import { formatDate, formatDateWeekday } from '@/utils/date'
 import TabBar from '@/components/TabBar.vue'
 import BookSelector from '@/components/BookSelector.vue'
@@ -160,13 +160,20 @@ const isHistorical = ref(false)
 
 // 月份筛选
 const showMonthPicker = ref(false)
-const selectedYear = ref<number | null>(null)
-const selectedMonth = ref<number | null>(null)
+// 默认定位到本月（与统计页的「本月」口径对齐），点「全部」可退回全量账单
+const today = new Date()
+const selectedYear = ref<number | null>(today.getFullYear())
+const selectedMonth = ref<number | null>(today.getMonth() + 1)
 const datePickerValue = ref<string[]>([])
 const minDate = new Date(2020, 0, 1)
 const maxDate = new Date(2030, 11, 31)
 
 const hasActivePeriod = computed(() => selectedYear.value !== null && selectedMonth.value !== null)
+// 已定位到本月 → 不再允许往后翻（未来月份不会有账单）
+const isCurrentMonth = computed(() => {
+  const now = new Date()
+  return selectedYear.value === now.getFullYear() && selectedMonth.value === now.getMonth() + 1
+})
 const periodText = computed(() => {
   if (selectedYear.value && selectedMonth.value) return `${selectedYear.value}年${selectedMonth.value}月`
   return '全部账单'
@@ -190,6 +197,7 @@ function nextMonth() {
     selectedMonth.value = now.getMonth() + 1
     return
   }
+  if (isCurrentMonth.value) return
   if (selectedMonth.value === 12) { selectedYear.value++; selectedMonth.value = 1 }
   else { selectedMonth.value++ }
 }
@@ -317,6 +325,16 @@ const secondaryAmount = computed(() =>
 )
 const secondaryIsZero = computed(() => secondaryAmount.value === 0)
 
+// 选中分类时用该分类的颜色点亮标签小圆点，作为"正在筛选"的视觉标识
+// （分类筛选行就在卡片正下方，点「全部」即可退出，不再单独放清除按钮）
+// 注意：不要把主数字染成分类色 —— 主数字是 28px 大字，蓝底上提亮后对比度会掉到 1.7~2.5（实测），
+// 白色(3.50) 才是这块底上最可读的。分类色只用在 8px 小圆点上，不承担文字可读性。
+const activeCategoryColor = computed(() => {
+  const cat = activeCategory.value
+  if (!cat) return '#ffffff'
+  return resolveCategoryColor(cat, categoryStore.categories).bg
+})
+
 const emptyText = computed(() => {
   if (isCategoryFiltering.value) return hasActivePeriod.value ? '该分类本月暂无记录' : '该分类暂无记录'
   return hasActivePeriod.value ? '本月暂无记录' : '暂无账单记录'
@@ -367,7 +385,8 @@ function secondaryName(id: number) {
 
 function categoryColor(id: number) {
   const cat = categoryStore.getById(id)
-  return cat ? getCategoryColor(cat.name) : getCategoryColor('其他')
+  // 优先用分类的自定义色（含继承父分类色），退回按名称匹配的内置色表
+  return cat ? resolveCategoryColor(cat, categoryStore.categories) : getCategoryColor('其他')
 }
 
 async function handleDelete(id: number) {
@@ -423,30 +442,18 @@ onMounted(async () => {
 .overview-expense .label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   font-size: 12px;
-  margin-bottom: 2px;
-  min-height: 19px;
-}
-.label-text {
   opacity: 0.8;
-  max-width: 118px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  margin-bottom: 2px;
 }
-.filter-clear {
-  font-size: 11px;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.22);
-  border: none;
-  border-radius: 8px;
-  padding: 1px 7px;
-  cursor: pointer;
+.label-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   flex-shrink: 0;
-  line-height: 1.5;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55);
 }
-.filter-clear:active { background: rgba(255, 255, 255, 0.38); }
 .overview-expense .amount {
   font-size: 28px;
   font-weight: 700;
@@ -480,6 +487,12 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 .period-arrow:active { background: rgba(255, 255, 255, 0.35); }
+.period-arrow:disabled {
+  opacity: 0.35;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: default;
+}
+.period-arrow:disabled:active { background: rgba(255, 255, 255, 0.1); }
 .period-label {
   font-size: 12px;
   font-weight: 600;

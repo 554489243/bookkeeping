@@ -19,7 +19,7 @@ export async function exportData(): Promise<BackupData> {
     db.records_history.toArray(),
     db.categories.toArray(),
     db.books.toArray(),
-    db.todos.toArray(),
+    db.todos.toArray()
   ])
 
   return {
@@ -29,7 +29,7 @@ export async function exportData(): Promise<BackupData> {
     records_history,
     categories,
     books,
-    todos,
+    todos
   }
 }
 
